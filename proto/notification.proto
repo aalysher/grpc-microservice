@@ -1,0 +1,37 @@
+// proto/notification.proto
+syntax = "proto3";
+
+package proto;
+
+option go_package = "grpc-microservices/proto";
+
+service NotificationService {
+  rpc SendNotification(SendNotificationRequest) returns (SendNotificationResponse) {}
+  rpc GetUserNotifications(GetUserNotificationsRequest) returns (GetUserNotificationsResponse) {}
+}
+
+message Notification {
+  string id = 1;
+  string user_id = 2;
+  string title = 3;
+  string content = 4;
+  int64 created_at = 5;
+}
+
+message SendNotificationRequest{
+  string user_id = 1;
+  string title = 2;
+  string content = 3;
+}
+
+message SendNotificationResponse{
+  Notification notification = 1;
+}
+
+message GetUserNotificationsRequest {
+  string user_id = 1;
+}
+
+message GetUserNotificationsResponse {
+  repeated Notification notifications = 1;
+}
