@@ -4,7 +4,7 @@ import (
 	"context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
-	pb "grpc-microservices/proto"
+	"grpc-microservices/api/proto"
 	"log"
 	"log/slog"
 	"time"
@@ -17,12 +17,12 @@ func main() {
 	}
 	defer conn.Close()
 
-	client := pb.NewUserServiceClient(conn)
+	client := proto.NewUserServiceClient(conn)
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
-	createResp, err := client.CreateUser(ctx, &pb.CreateUserRequest{
+	createResp, err := client.CreateUser(ctx, &proto.CreateUserRequest{
 		Name:  "John Doe",
 		Email: "john@example.com",
 	})
@@ -31,7 +31,7 @@ func main() {
 	}
 	slog.Info("createResp: %v", createResp.GetUser())
 
-	getUserResp, err := client.GetUser(ctx, &pb.GetUserRequest{
+	getUserResp, err := client.GetUser(ctx, &proto.GetUserRequest{
 		Id: createResp.GetUser().GetId(),
 	})
 
@@ -40,7 +40,7 @@ func main() {
 	}
 	slog.Info("Retrieved user: %v", getUserResp.GetUser())
 
-	_, err = client.GetUser(ctx, &pb.GetUserRequest{
+	_, err = client.GetUser(ctx, &proto.GetUserRequest{
 		Id: "non-existent-id",
 	})
 	if err != nil {

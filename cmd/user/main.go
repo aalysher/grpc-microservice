@@ -7,15 +7,15 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/status"
-	pb "grpc-microservices/proto"
+	"grpc-microservices/api/proto"
 	"log"
 	"net"
 )
 
 type server struct {
-	pb.UnimplementedUserServiceServer
-	users              map[string]*pb.User
-	notificationClient pb.NotificationServiceClient
+	proto.UnimplementedUserServiceServer
+	users              map[string]*proto.User
+	notificationClient proto.NotificationServiceClient
 }
 
 func NewServer() *server {
@@ -25,15 +25,15 @@ func NewServer() *server {
 	}
 
 	return &server{
-		users:              make(map[string]*pb.User),
-		notificationClient: pb.NewNotificationServiceClient(conn),
+		users:              make(map[string]*proto.User),
+		notificationClient: proto.NewNotificationServiceClient(conn),
 	}
 }
 
-func (s *server) CreateUser(ctx context.Context, req *pb.CreateUserRequest) (*pb.CreateUserResponse, error) {
+func (s *server) CreateUser(ctx context.Context, req *proto.CreateUserRequest) (*proto.CreateUserResponse, error) {
 	userID := uuid.New().String()
 
-	user := &pb.User{
+	user := &proto.User{
 		Id:    userID,
 		Name:  req.Name,
 		Email: req.Email,
@@ -43,7 +43,7 @@ func (s *server) CreateUser(ctx context.Context, req *pb.CreateUserRequest) (*pb
 
 	log.Printf("Created user: %v", user)
 
-	_, err := s.notificationClient.SendNotification(ctx, &pb.SendNotificationRequest{
+	_, err := s.notificationClient.SendNotification(ctx, &proto.SendNotificationRequest{
 		UserId:  userID,
 		Title:   "Welcome to the platform!",
 		Content: "Hello " + user.Name + "! Your account has been successfully created.",
@@ -52,12 +52,12 @@ func (s *server) CreateUser(ctx context.Context, req *pb.CreateUserRequest) (*pb
 		log.Printf("Warning: failed to send welcome notification: %v", err)
 	}
 
-	return &pb.CreateUserResponse{
+	return &proto.CreateUserResponse{
 		User: user,
 	}, nil
 }
 
-func (s *server) GetUser(ctx context.Context, req *pb.GetUserRequest) (*pb.GetUserResponse, error) {
+func (s *server) GetUser(ctx context.Context, req *proto.GetUserRequest) (*proto.GetUserResponse, error) {
 	user, exists := s.users[req.Id]
 	if !exists {
 		return nil, status.Errorf(codes.NotFound, "user not found: %v", req.Id)
@@ -65,7 +65,7 @@ func (s *server) GetUser(ctx context.Context, req *pb.GetUserRequest) (*pb.GetUs
 
 	log.Printf("Retrieved user: %v", user)
 
-	return &pb.GetUserResponse{
+	return &proto.GetUserResponse{
 		User: user,
 	}, nil
 }
@@ -77,7 +77,7 @@ func main() {
 	}
 
 	s := grpc.NewServer()
-	pb.RegisterUserServiceServer(s, NewServer())
+	proto.RegisterUserServiceServer(s, NewServer())
 
 	log.Printf("server listening at %v", lis.Addr())
 	if err := s.Serve(lis); err != nil {

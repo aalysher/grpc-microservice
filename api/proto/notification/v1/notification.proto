@@ -8,6 +8,8 @@ option go_package = "grpc-microservices/proto";
 service NotificationService {
   rpc SendNotification(SendNotificationRequest) returns (SendNotificationResponse) {}
   rpc GetUserNotifications(GetUserNotificationsRequest) returns (GetUserNotificationsResponse) {}
+
+  rpc SubscribeToNotifications(SubscribeRequest) returns (stream NotificationUpdate) {}
 }
 
 message Notification {
@@ -34,4 +36,13 @@ message GetUserNotificationsRequest {
 
 message GetUserNotificationsResponse {
   repeated Notification notifications = 1;
+}
+
+message SubscribeRequest {
+  string user_id = 1;
+}
+
+message NotificationUpdate {
+  Notification notification = 1;
+  int64  timestamp = 2;
 }

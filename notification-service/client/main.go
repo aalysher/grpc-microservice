@@ -2,12 +2,13 @@ package main
 
 import (
 	"context"
+	"grpc-microservices/api/proto"
 	"log"
+	"sync"
 	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
-	pb "grpc-microservices/proto"
 )
 
 func main() {
@@ -17,55 +18,53 @@ func main() {
 	}
 	defer conn.Close()
 
-	client := pb.NewNotificationServiceClient(conn)
-
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-	defer cancel()
-
+	client := proto.NewNotificationServiceClient(conn)
 	userId := "test-user-123"
 
-	notification1, err := client.SendNotification(ctx, &pb.SendNotificationRequest{
-		UserId:  userId,
-		Title:   "Welcome!",
-		Content: "Welcome to our platform!",
-	})
-	if err != nil {
-		log.Fatalf("could not send notification: %v", err)
-	}
-	log.Printf("Sent notification: %v", notification1.GetNotification())
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
-	notification2, err := client.SendNotification(ctx, &pb.SendNotificationRequest{
-		UserId:  userId,
-		Title:   "New Feature",
-		Content: "Check out our new feature!",
-	})
-	if err != nil {
-		log.Fatalf("could not send notification: %v", err)
-	}
-	log.Printf("Sent notification: %v", notification2.GetNotification())
-
-	notifications, err := client.GetUserNotifications(ctx, &pb.GetUserNotificationsRequest{
+	stream, err := client.SubscribeToNotifications(ctx, &proto.SubscribeRequest{
 		UserId: userId,
 	})
 	if err != nil {
-		log.Fatalf("could not get notifications: %v", err)
+		log.Fatalf("could not subscribe: %v", err)
 	}
 
-	log.Printf("Retrieved %d notifications:", len(notifications.GetNotifications()))
-	for i, notification := range notifications.GetNotifications() {
-		log.Printf("%d. Title: %s, Content: %s, Created At: %v",
-			i+1,
-			notification.Title,
-			notification.Content,
-			time.Unix(notification.CreatedAt, 0),
-		)
-	}
+	var wg sync.WaitGroup
+	wg.Add(2)
 
-	emptyNotifications, err := client.GetUserNotifications(ctx, &pb.GetUserNotificationsRequest{
-		UserId: "non-existent-user",
-	})
-	if err != nil {
-		log.Fatalf("could not get notifications: %v", err)
-	}
-	log.Printf("Notifications for non-existent user: %d", len(emptyNotifications.GetNotifications()))
+	// Горутина для получения уведомлений
+	go func() {
+		defer wg.Done()
+		for {
+			update, err := stream.Recv()
+			if err != nil {
+				log.Printf("Stream closed: %v", err)
+				return
+			}
+			log.Printf("Received notification: %v", update.Notification)
+		}
+	}()
+
+	// Горутина для отправки тестовых уведомлений
+	go func() {
+		defer wg.Done()
+		// Отправляем несколько тестовых уведомлений
+		for i := 1; i <= 5; i++ {
+			_, err := client.SendNotification(ctx, &proto.SendNotificationRequest{
+				UserId:  userId,
+				Title:   "Test Notification " + time.Now().Format(time.RFC3339),
+				Content: "This is test notification #" + string(rune(i+'0')),
+			})
+			if err != nil {
+				log.Printf("Failed to send notification: %v", err)
+				return
+			}
+			time.Sleep(2 * time.Second) // Пауза между уведомлениями
+		}
+		cancel() // Завершаем после отправки всех уведомлений
+	}()
+
+	wg.Wait()
 }
